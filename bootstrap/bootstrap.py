@@ -31,7 +31,7 @@ def _compute_metric(array:np.ndarray or list, func, size:int) -> float:
     # metric for bootstrap function
     return func(np.random.choice(array, size=size, replace=True))
 
-def bootstrap(array:np.ndarray, num_iters:int = 100, func = np.std, alpha:float = 0.95, size_scaler:float = 1, size:int = None) -> dict:
+def bootstrap(array:np.ndarray, num_iters:int = 100, func = np.std, alpha:float = 0.95, size_scaler:float = 1, size:int = None, use_mp:bool = True) -> dict:
     r"""
     Entry function for obtaining metrics of an array with the alpha confidence interval, by resampling bootstrap method.
     array: array on which to apply the method
@@ -41,6 +41,7 @@ def bootstrap(array:np.ndarray, num_iters:int = 100, func = np.std, alpha:float 
     size_scaler = 1: sometime it's useful to apply the resampling over fewer or more of the array elements than are available (with replacement),
     a value of one means the number of elements sampled from the array in each iteration will be equal to the size of the array, 0.5 will randomly select half of the elements (with replacement) etc. 
     size = None: as above, the number of elements from the array to sample (with replacement) on each iteration, default is determined from the size_scaler but this overried any size_scaler input.
+    use_mp = True: use multiprocessing
     """
     if alpha > 1 or alpha <= 0:
         raise Exception("Invalid alpha value passed, should be in [0, 1]: {0}".format(alpha))
@@ -55,9 +56,12 @@ def bootstrap(array:np.ndarray, num_iters:int = 100, func = np.std, alpha:float 
     if size is None:
         size = int(np.prod(array.shape)) * int(size_scaler)
     
-    targets = [(array, func, size) for i in range(num_iters)]
-    with mp.Pool() as pool:
-        result = pool.starmap(_compute_metric, targets)
+    if use_mp:
+        targets = [(array, func, size) for i in range(num_iters)]
+        with mp.Pool() as pool:
+            result = pool.starmap(_compute_metric, targets)
+    else:
+        result = [func(np.random.choice(array, size=size, replace=True)) for i in range(num_iters)]
     
     ave = np.mean(result)
     # get lower%th index and upper%th index as lower and upper bounds
